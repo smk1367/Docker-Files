@@ -1,0 +1,102 @@
+version: '2'
+
+services:
+  prometheus:
+    image: bitnami/prometheus
+    container_name: prometheus
+    hostname: prometheus
+    restart: always
+    user: root
+    volumes:
+      - /etc/prometheus/prometheus.yml:/opt/bitnami/prometheus/conf/prometheus.yml
+      - prometheus_data:/opt/bitnami/prometheus/data
+    ports:
+      - '8000:9090'
+    networks:
+      - prometheus
+
+  grafana:
+    image: bitnami/grafana
+    container_name: grafana
+    hostname: grafana
+    restart: always
+    ports:
+      - '8001:3000'
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "bitnami"
+      GF_RENDERING_SERVER_URL: "http://grafana-image-renderer:8000/render"
+      GF_RENDERING_CALLBACK_URL: "http://grafana:3000/"
+    networks:
+      - prometheus
+    volumes:
+      - /etc/grafana/grafana.ini:/opt/bitnami/grafana/conf/grafana.ini
+      - grafana_data:/opt/bitnami/grafana/data
+
+  grafana-image-renderer:
+    image: bitnami/grafana-image-renderer
+    container_name: grafana-image-renderer
+    hostname: grafana-image-renderer
+    restart: always
+    ports:
+      - '8002:8080'
+    environment:
+      HTTP_HOST: "0.0.0.0"
+      HTTP_PORT: "8080"
+      ENABLE_METRICS: 'true'
+    networks:
+      - prometheus
+
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    command:
+      - '--path.rootfs=/host'
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - '/:/host:ro,rslave'
+  
+networks:
+  prometheus:
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+
+-----------------------------
+
+# my global config
+global:
+  scrape_interval: 15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  # scrape_timeout is set to the global default (10s).
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+# Here it's Prometheus itself.
+scrape_configs:
+  # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: "ubuntu"
+    static_configs:
+      - targets: ["192.168.110.128:9100"]
+
+  - job_name: "ubuntu"
+    static_configs:
+      - targets: ["192.168.110.130:9100"]
